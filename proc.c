@@ -15,6 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+int lock = 0;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -29,11 +30,11 @@ pinit(void)
 int 
 allocpid(void) 
 {
-  int pid;
-  acquire(&ptable.lock);
-  pid = nextpid++;
-  release(&ptable.lock);
-  return pid;
+  int oldPid = nextpid;
+  while(!cas(&nextpid,oldPid,oldPid+1)){
+    oldPid = nextpid;
+  }
+  return nextpid;
 }
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
@@ -45,20 +46,32 @@ allocproc(void)
 {
   struct proc *p;
   char *sp;
+  int hope = 1;
 
-  acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  // acquire(&ptable.lock);
+  while(hope){
+    hope = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state == UNUSED){
+        hope = 1;
+        break;
+      }
+    }
+    while(!cas(&lock,0,1)){
+    }
+    //CS
     if(p->state == UNUSED)
       goto found;
-  release(&ptable.lock);
+    lock = 0;
+  }
   return 0;
+
+  
 
 found:
   p->state = EMBRYO;  
-  release(&ptable.lock);
-
+  lock = 0;
   p->pid = allocpid();
-
   // Allocate kernel stack.
   if((p->kstack = kalloc()) == 0){
     p->state = UNUSED;
