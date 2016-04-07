@@ -55,33 +55,6 @@ allocproc(void)
   
 }
 
-
-
-  // int hope = 1;
-
-  // // acquire(&ptable.lock);
-  // while(hope){
-  //   hope = 0;
-  //   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-  //     if(p->state == UNUSED){
-  //       hope = 1;
-  //       break;
-  //     }
-  //   }
-  //   while(!cas(&lock,0,1)){
-  //   }
-  //   //CS
-  //   if(p->state == UNUSED)
-  //     goto found;
-  //   lock = 0;
-  // }
-  // return 0;
-
-
-
-// found:
-//   p->state = EMBRYO;  
-  // lock = 0;
 p->pid = allocpid();
   // Allocate kernel stack.
 if((p->kstack = kalloc()) == 0){
@@ -129,6 +102,8 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
+
+  p->signal_handler = (int*)-1; //NEWWWW
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -191,6 +166,7 @@ fork(void)
     safestrcpy(np->name, proc->name, sizeof(proc->name));
     
     pid = np->pid;
+    np->signal_handler = proc->signal_handler; //NEWWWWWW
 
   // lock to force the compiler to emit the np->state write last.
     acquire(&ptable.lock);
@@ -518,3 +494,10 @@ wakeup1(void *chan)
       cprintf("\n");
     }
   }
+
+int
+sigset(sig_handler handler){
+  //sig_handler oldHandler = proc->signal_handler;
+  proc->signal_handler = handler;
+  return 1;
+}
