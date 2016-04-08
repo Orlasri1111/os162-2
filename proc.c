@@ -18,6 +18,7 @@ int nextpid = 1;
 // int lock = 0;
 extern void forkret(void);
 extern void trapret(void);
+void changeState(struct proc *p, int newState);
 
 static void wakeup1(void *chan);
 
@@ -169,9 +170,10 @@ fork(void)
     np->signal_handler = proc->signal_handler; //NEWWWWWW
 
   // lock to force the compiler to emit the np->state write last.
-    acquire(&ptable.lock);
-    np->state = RUNNABLE;
-    release(&ptable.lock);
+    // acquire(&ptable.lock);
+    // np->state = RUNNABLE;
+    // release(&ptable.lock);
+    changeState(np,RUNNABLE);
     
     return pid;
   }
@@ -500,4 +502,9 @@ sigset(sig_handler handler){
   //sig_handler oldHandler = proc->signal_handler;
   proc->signal_handler = handler;
   return 1;
+}
+
+void
+changeState(struct proc *p, int newState){
+  while(!cas(&(p->state),p->state,newState));
 }
