@@ -55,34 +55,16 @@ allocproc(void)
   
 }
 
-
-
-  // int hope = 1;
-
-  // // acquire(&ptable.lock);
-  // while(hope){
-  //   hope = 0;
-  //   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-  //     if(p->state == UNUSED){
-  //       hope = 1;
-  //       break;
-  //     }
-  //   }
-  //   while(!cas(&lock,0,1)){
-  //   }
-  //   //CS
-  //   if(p->state == UNUSED)
-  //     goto found;
-  //   lock = 0;
-  // }
-  // return 0;
-
-
-
-// found:
-//   p->state = EMBRYO;  
-  // lock = 0;
 p->pid = allocpid();
+p->signal = (void*)-1;  //new signals handler
+
+//initialize cstack
+struct cstackframe *csf;
+for(csf = p->pending_signals.frames; csf < &p->pending_signals.frames[10]; csf++) {
+  csf->used = 0;
+}
+p->pending_signals.head = 0;
+
   // Allocate kernel stack.
 if((p->kstack = kalloc()) == 0){
   p->state = UNUSED;
@@ -179,6 +161,7 @@ fork(void)
   np->sz = proc->sz;
   np->parent = proc;
   *np->tf = *proc->tf;
+  np->signal = np->parent->signal; //copy parent's signals
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -189,14 +172,14 @@ fork(void)
     np->cwd = idup(proc->cwd);
 
     safestrcpy(np->name, proc->name, sizeof(proc->name));
-    
+
     pid = np->pid;
 
   // lock to force the compiler to emit the np->state write last.
     acquire(&ptable.lock);
     np->state = RUNNABLE;
     release(&ptable.lock);
-    
+
     return pid;
   }
 
@@ -242,7 +225,7 @@ fork(void)
     }
 
   // Jump into the scheduler, never to return.
-    
+
     sched();
     panic("zombie exit");
   }
@@ -501,7 +484,7 @@ wakeup1(void *chan)
     struct proc *p;
     char *state;
     uint pc[10];
-    
+
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state == UNUSED)
         continue;
@@ -518,3 +501,99 @@ wakeup1(void *chan)
       cprintf("\n");
     }
   }
+  // update signal in proc and return old one
+  sig_handler sigset(sig_handler sig){
+    sig_handler oldsig = proc->signal;
+    proc->signal = sig;
+    return oldsig;
+  }
+//add a record to the recipient pending signals stack.
+// return 0 on success and -1 on failure (if pending signals stack is full).
+  int sigsend(int dest_pid, int value){
+    struct proc *p;
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if (p->pid == dest_pid){  //found process
+        if (push(&p->pending_signals, proc->pid, dest_pid, value)){ //succeeded push signal
+          wakeup((void*)p->chan);
+          return 0;
+        }
+        else
+          return -1;
+      }
+    }
+    return -1;
+  }
+// restore the CPU registers values for the user space execution by restore old trapfram
+  void sigret(void){
+    proc->tf = proc->oldtf;
+    //TODO!
+
+  }
+  //suspend the process until a new signal is received
+  int sigpause(void){
+    if(isEmpty(&proc->pending_signals)){ //no signals to handle go to sleep
+      proc->chan = (int)(&(proc->pending_signals));  //sleep on my pending signals TODO
+      if(cas(&(proc->state), RUNNING, SLEEPING)){
+        sched();  
+      }
+    //TODO?
+    }
+    return 0;
+
+  }
+/////CSTACK IMPLEMENTATION
+
+// adds a new frame to the cstack which is initialized with values
+// sender_pid, recepient_pid and value, then returns 1 on success and 0
+// if the stack is full
+  int 
+  push(struct cstack *cstack, int sender_pid, int recepient_pid, int value){
+    struct cstackframe *csf;
+    for(csf = cstack->frames; csf < &cstack->frames[10]; csf++) {
+      if(cas(&csf->used, 0, 1)) 
+        goto found;
+    }
+  //stack is full
+    return 0;
+
+  //found an unused signal
+    found:
+  // copy values
+    csf->sender_pid = sender_pid;
+    csf->recepient_pid = recepient_pid;
+    csf->value = value;
+
+    do {
+      csf->next = cstack->head;
+    } while (!cas((int*)&(cstack->head), (int)csf->next, (int)&csf));
+
+    return 1;
+  }
+
+// removes and returns an element from the head of given cstack // if the stack is empty, then return 0
+  struct cstackframe*
+  pop(struct cstack *cstack){
+    struct cstackframe *csf;
+    struct cstackframe *next;
+
+    do {
+      csf = cstack->head;
+      if (!csf)
+        return 0;
+    } while (!cas((int*)&(cstack->head), (int)csf, (int)&next));
+
+  //csf->used = 0;
+    return csf;
+  }
+    //return 1 if empty 0 otherwise 
+  int
+  isEmpty(struct cstack *cstack){
+    struct cstackframe *csf;
+    for(csf = cstack->frames; csf < &cstack->frames[10]; csf++) {
+      if(csf->used == 1)
+        return 0;
+    }
+    return 1;
+  }
+
+//END OF CSTACK

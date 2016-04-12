@@ -23,6 +23,11 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+//SIGNALS PART
+sig_handler sigset(sig_handler);
+int sigsend(int, int);
+void sigret(void);
+int sigpause(void);
 
 // ulib.c
 int stat(char*, struct stat*);

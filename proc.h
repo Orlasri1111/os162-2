@@ -51,6 +51,32 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+//cstack details
+// defines an element of the concurrent struct
+struct cstackframe {
+  int sender_pid;
+  int recepient_pid;
+  int value;
+  int used;
+  struct cstackframe *next;
+};
+// defines a concurrent stack
+struct cstack {
+  struct cstackframe frames [10];
+  struct cstackframe *head;
+  // struct cstackframe *tail;
+};
+// adds a new frame to the cstack which is initialized with values
+// sender_pid, recepient_pid and value, then returns 1 on success and 0
+// if the stack is full
+int push(struct cstack *cstack, int sender_pid, int recepient_pid, int value);
+// removes and returns an element from the head of given cstack // if the stack is empty, then return 0
+struct cstackframe *pop(struct cstack *cstack );
+//return 1 if empty 0 otherwise
+int isEmpty(struct cstack *cstack);
+
+////end of cstack
+
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
@@ -66,6 +92,9 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  sig_handler signal;          //points to signal handler
+  struct cstack pending_signals;  //a stack of all pending signals
+  struct trapframe *oldtf;        // Trap frame for old enviroment syscall //TODO!!
 };
 
 // Process memory is laid out contiguously, low addresses first:

@@ -89,3 +89,39 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+//sets the signal handler to be called when signals are sent
+int
+sys_sigset(void){
+  sig_handler handler;
+  argptr(0, (void*)&handler, 128);
+  return (int)sigset(handler);
+}
+
+//send a signal with the given value to a process with pid dest_pid
+int
+sys_sigsend(void){
+//sigsend(int dest_pid, int value){
+  int destpid;
+  int val;
+  if(argint(0, &destpid) < 0)
+    return -1;
+  if(argint(1, &val) < 0)
+    return -1;
+  return sigsend(destpid, val);
+}
+
+//complete the signal handling context (should not be called explicitly)
+int
+sys_sigret(void){
+  //TODO:!!
+  return 0;
+  
+}
+
+//suspend the process until a new signal is received
+int
+sys_sigpause(void){
+  //TODO!!
+  return 0;
+}

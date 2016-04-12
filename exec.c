@@ -92,6 +92,7 @@ exec(char *path, char **argv)
   proc->sz = sz;
   proc->tf->eip = elf.entry;  // main
   proc->tf->esp = sp;
+  proc->signal = (void*) -1;  //when exe put -1 in signals
   switchuvm(proc);
   freevm(oldpgdir);
   return 0;
