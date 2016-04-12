@@ -115,6 +115,7 @@ sys_sigsend(void){
 int
 sys_sigret(void){
   //TODO:!!
+  sigret();//FOR TEST DELETE AFTER
   return 0;
   
 }
@@ -123,6 +124,6 @@ sys_sigret(void){
 int
 sys_sigpause(void){
   //TODO!!
-  //return sigset(handler);
-  return 0;
+  return sigpause();
+  //return 0;
 }

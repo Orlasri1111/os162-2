@@ -20,7 +20,7 @@ extern void forkret(void);
 extern void trapret(void);
 void changeState(struct proc *p, int newState);
 void changeStateFromTo(struct proc *p, int from, int to);
-
+void testStack(void); //TODO TESTS
 static void wakeup1(void *chan);
 
 void
@@ -602,7 +602,9 @@ wakeup1(void *chan)
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if (p->pid == dest_pid){  //found process
         if (push(&p->pending_signals, proc->pid, dest_pid, value)){ //succeeded push signal
-          wakeup((void*)p->chan);
+          //wakeup((void*)p->chan);
+          wakeup((void*)&(p->pending_signals)); //TODO:CHECK!wake up if sleeps on pending_signals
+
           return 0;
         }
         else
@@ -613,21 +615,23 @@ wakeup1(void *chan)
   }
 // restore the CPU registers values for the user space execution by restore old trapfram
   void sigret(void){
-    proc->tf = proc->oldtf;
+    //proc->tf = proc->oldtf;
     //TODO!
+    testStack();  //TODO DELETE TESTS
 
   }
   //suspend the process until a new signal is received
   int sigpause(void){
     if(isEmpty(&proc->pending_signals)){ //no signals to handle go to sleep
-      proc->chan = (int)(&(proc->pending_signals));  //sleep on my pending signals TODO
-      if(cas(&(proc->state), RUNNING, SLEEPING)){
-        sched();  
+      proc->chan = (int)&proc->pending_signals;  //sleep on my pending signals TODO
+      if(cas(&proc->state, RUNNING, NEG_SLEEPING)){
+        pushcli();
+        sched();
+        popcli(); //TODO??
       }
     //TODO?
     }
     return 0;
-
   }
 /////CSTACK IMPLEMENTATION
 
@@ -637,6 +641,7 @@ wakeup1(void *chan)
   int 
   push(struct cstack *cstack, int sender_pid, int recepient_pid, int value){
     struct cstackframe *csf;
+    
     for(csf = cstack->frames; csf < &cstack->frames[10]; csf++) {
       if(cas(&csf->used, 0, 1)) 
         goto found;
@@ -650,10 +655,11 @@ wakeup1(void *chan)
     csf->sender_pid = sender_pid;
     csf->recepient_pid = recepient_pid;
     csf->value = value;
-
+    // if(cas((int*)&(cstack->head), 0, (int)&csf))
+    //   return 1;
     do {
       csf->next = cstack->head;
-    } while (!cas((int*)&(cstack->head), (int)csf->next, (int)&csf));
+    } while (!cas((int*)&(cstack->head), (int)csf->next, (int)csf));
 
     return 1;
   }
@@ -662,13 +668,13 @@ wakeup1(void *chan)
   struct cstackframe*
   pop(struct cstack *cstack){
     struct cstackframe *csf;
-    struct cstackframe *next;
+    //struct cstackframe *next;
 
     do {
       csf = cstack->head;
       if (!csf)
         return 0;
-    } while (!cas((int*)&(cstack->head), (int)csf, (int)&next));
+    } while (!cas((int*)&(cstack->head), (int)csf, (int)csf->next));
 
   //csf->used = 0;
     return csf;
@@ -676,12 +682,13 @@ wakeup1(void *chan)
     //return 1 if empty 0 otherwise 
   int
   isEmpty(struct cstack *cstack){
-    struct cstackframe *csf;
-    for(csf = cstack->frames; csf < &cstack->frames[10]; csf++) {
-      if(csf->used == 1)
-        return 0;
-    }
-    return 1;
+    // struct cstackframe *csf;
+    // for(csf = cstack->frames; csf < &cstack->frames[10]; csf++) {
+    //   if(csf->used == 1)
+    //     return 0;
+    // }
+    // return 1;
+    return !(cstack->head);
   }
 
 //END OF CSTACK
@@ -697,4 +704,25 @@ changeStateFromTo(struct proc *p, int from, int to){
        //cprintf("%d -> %d\n",from,to);
   }
   //cprintf("success\n");
+}
+
+void 
+testStack(){
+  struct cstackframe* csftest;
+
+  cprintf("%d\n", initproc->pending_signals.frames[5].used);
+  push(&initproc->pending_signals, initproc->pid, initproc->pid,7);
+    //cprintf("%d\n", initproc->pending_signals.head->value);
+
+  push(&initproc->pending_signals, initproc->pid, initproc->pid,9);
+    //cprintf("%d\n", (int)initproc->pending_signals.head->value);
+
+
+
+  //struct cstackframe* csftest;
+  csftest = pop(&initproc->pending_signals);
+  cprintf("%d\n",csftest->value);
+    csftest = pop(&initproc->pending_signals);
+  cprintf("%d\n",csftest->value);
+
 }
