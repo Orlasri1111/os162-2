@@ -122,7 +122,6 @@ sig_handler		sigset(sig_handler);
 int             sigsend(int dest_pid, int value);
 void            sigret(void);
 int             sigpause(void);
-
 // swtch.S
 void            swtch(struct context**, struct context*);
 

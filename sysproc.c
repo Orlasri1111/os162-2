@@ -123,5 +123,6 @@ sys_sigret(void){
 int
 sys_sigpause(void){
   //TODO!!
+  //return sigset(handler);
   return 0;
 }

@@ -1,6 +1,7 @@
 struct stat;
 struct rtcdate;
 
+
 // system calls
 int fork(void);
 int exit(void) __attribute__((noreturn));
@@ -24,10 +25,10 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 //SIGNALS PART
-sig_handler sigset(sig_handler);
 int sigsend(int, int);
 void sigret(void);
 int sigpause(void);
+sig_handler sigset(sig_handler);
 
 // ulib.c
 int stat(char*, struct stat*);
