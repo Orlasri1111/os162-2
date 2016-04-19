@@ -26,9 +26,10 @@ alltraps:
   # Return falls through to trapret...
 .globl trapret
 trapret:
-  pushl %esp
-  call usesignal
-  addl $4, %esp
+   pushl %esp
+   call usesignal
+   addl $4, %esp
+
 
   popal
   popl %gs

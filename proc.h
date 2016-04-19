@@ -1,5 +1,7 @@
 // Segments in proc->gdt.
 #define NSEGS     7
+extern void* startsigret;
+extern void* endsigret;
 
 // Per-CPU state
 struct cpu {
@@ -77,6 +79,42 @@ int isEmpty(struct cstack *cstack);
 
 ////end of cstack
 
+//same as trap frame
+struct daniframe {
+  // registers as pushed by pusha
+  uint edi;
+  uint esi;
+  uint ebp;
+  uint oesp;      // useless & ignored
+  uint ebx;
+  uint edx;
+  uint ecx;
+  uint eax;
+
+  // rest of trap frame
+  ushort gs;
+  ushort padding1;
+  ushort fs;
+  ushort padding2;
+  ushort es;
+  ushort padding3;
+  ushort ds;
+  ushort padding4;
+  uint trapno;
+
+  // below here defined by x86 hardware
+  uint err;
+  uint eip;
+  ushort cs;
+  ushort padding5;
+  uint eflags;
+
+  // below here only when crossing rings, such as from user to kernel
+  uint esp;
+  ushort ss;
+  ushort padding6;
+};
+
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
@@ -94,7 +132,7 @@ struct proc {
   char name[16];               // Process name (debugging)
   sig_handler signal;          //points to signal handler
   struct cstack pending_signals;  //a stack of all pending signals
-  struct trapframe *oldtf;        // Trap frame for old enviroment syscall //TODO!!
+  struct daniframe oldtf;        // Trap frame for backup enviroment syscall //TODO!!
 };
 
 // Process memory is laid out contiguously, low addresses first:

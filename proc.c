@@ -726,3 +726,60 @@ testStack(){
   cprintf("%d\n",csftest->value);
 
 }
+
+void backuptf(void){
+    proc->oldtf.edi = proc->tf->edi;
+    proc->oldtf.esi = proc->tf->esi;
+    proc->oldtf.ebp = proc->tf->ebp;
+    proc->oldtf.oesp = proc->tf->oesp;
+    proc->oldtf.ebx = proc->tf->ebx;
+    proc->oldtf.ecx = proc->tf->ecx;
+    proc->oldtf.eax = proc->tf->eax;
+    proc->oldtf.gs = proc->tf->gs;
+    proc->oldtf.padding1 = proc->tf->padding1;
+    proc->oldtf.fs = proc->tf->fs;
+    proc->oldtf.padding2 = proc->tf->padding2;
+    proc->oldtf.es = proc->tf->es;
+    proc->oldtf.padding3 = proc->tf->padding3;
+    proc->oldtf.ds = proc->tf->ds;
+    proc->oldtf.padding4 = proc->tf->padding4;
+    proc->oldtf.trapno = proc->tf->trapno;
+    proc->oldtf.err = proc->tf->err;
+    proc->oldtf.eip = proc->tf->eip;
+    proc->oldtf.cs = proc->tf->cs;
+    proc->oldtf.padding5 = proc->tf->padding5;
+    proc->oldtf.eflags = proc->tf->eflags;
+    proc->oldtf.esp = proc->tf->esp;
+    proc->oldtf.ss = proc->tf->ss;
+    proc->oldtf.padding6 = proc->tf->padding6;
+    
+}
+
+void
+usesignal(struct trapframe *tf){
+    if ( ( (tf->cs&3) == 3) && (proc != 0) && ((int)proc->signal != -1) && (proc->pending_signals.head != 0) && (proc->pending_signals.head->used != 0) ){
+        struct cstackframe *signalhead = pop(&proc->pending_signals);
+        backuptf();
+        proc->tf->eip = (uint)(proc->signal);
+        // the size we need to use in the stack in order to copy the relevant code
+        int diffbytes = ((int)(&endsigret) -(int)(&startsigret));
+        //push the code into the stack
+        memmove((void*)(proc->tf->esp-diffbytes),&startsigret,diffbytes);
+        //update esp to point to the new place
+        proc->tf->esp =proc->tf->esp - diffbytes;
+        int value = signalhead->value;
+        int recipientid = signalhead->recepient_pid;
+        signalhead->used = 0;
+        //push all args to stack
+        memmove((void*)(proc->tf->esp-4),&value,4);
+        memmove((void*)(proc->tf->esp-8),&recipientid,4);
+        proc->tf->esp =proc->tf->esp - 8;
+        int return_add = proc->tf->esp +8;
+        //push the return address to the stack
+        memmove((void*)(proc->tf->esp-4),&return_add,4);
+        proc->tf->esp =proc->tf->esp - 4;
+        
+        
+    }
+    
+}
