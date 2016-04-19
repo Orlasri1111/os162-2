@@ -94,7 +94,7 @@ sys_uptime(void)
 int
 sys_sigset(void){
   sig_handler handler;
-  argptr(0, (void*)&handler, 128);
+  argptr(0,(void*)&handler, 128);
   return (int)sigset(handler);
 }
 

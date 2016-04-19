@@ -622,15 +622,15 @@ wakeup1(void *chan)
   }
   //suspend the process until a new signal is received
   int sigpause(void){
-    if(isEmpty(&proc->pending_signals)){ //no signals to handle go to sleep
-      proc->chan = (int)&proc->pending_signals;  //sleep on my pending signals TODO
+    pushcli();
+    while(isEmpty(&proc->pending_signals)){ //no signals to handle go to sleep
+      proc->chan = (int)(&proc->pending_signals);  //sleep on my pending signals TODO
       if(cas(&proc->state, RUNNING, NEG_SLEEPING)){
-        pushcli();
         sched();
-        popcli(); //TODO??
       }
     //TODO?
     }
+    popcli(); //TODO??
     return 0;
   }
 /////CSTACK IMPLEMENTATION
