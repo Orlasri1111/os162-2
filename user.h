@@ -29,6 +29,7 @@ int sigsend(int, int);
 void sigret(void);
 int sigpause(void);
 sig_handler sigset(sig_handler);
+int test(void);
 
 // ulib.c
 int stat(char*, struct stat*);

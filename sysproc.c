@@ -127,3 +127,7 @@ sys_sigpause(void){
   return sigpause();
   //return 0;
 }
+int
+sys_test(void){
+  return test();
+}

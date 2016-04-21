@@ -123,6 +123,7 @@ int             sigsend(int dest_pid, int value);
 void            sigret(void);
 int             sigpause(void);
 void            testStack(void);	//TESTS
+int             test(void);
 // swtch.S
 void            swtch(struct context**, struct context*);
 

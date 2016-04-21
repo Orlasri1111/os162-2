@@ -14,6 +14,7 @@ struct {
 
 static struct proc *initproc;
 
+void test_handler(int pid, int value);
 int nextpid = 1;
 // int lock = 0;
 extern void forkret(void);
@@ -604,7 +605,6 @@ wakeup1(void *chan)
         if (push(&p->pending_signals, proc->pid, dest_pid, value)){ //succeeded push signal
           //wakeup((void*)p->chan);
           wakeup((void*)&(p->pending_signals)); //TODO:CHECK!wake up if sleeps on pending_signals
-
           return 0;
         }
         else
@@ -617,15 +617,16 @@ wakeup1(void *chan)
   void sigret(void){
     //proc->tf = proc->oldtf;
     //TODO!
-    testStack();  //TODO DELETE TESTS
+    //testStack();  //TODO DELETE TESTS
 
   }
   //suspend the process until a new signal is received
   int sigpause(void){
     pushcli();
     while(isEmpty(&proc->pending_signals)){ //no signals to handle go to sleep
-      proc->chan = (int)(&proc->pending_signals);  //sleep on my pending signals TODO
-      if(cas(&proc->state, RUNNING, NEG_SLEEPING)){
+      cprintf("going to sleep\n");
+      proc->chan = (int)(&(proc->pending_signals));  //sleep on my pending signals TODO
+      if(cas(&(proc->state), RUNNING, NEG_SLEEPING)){
         sched();
       }
     //TODO?
@@ -782,4 +783,31 @@ usesignal(struct trapframe *tf){
         
     }
     
+}
+int 
+test(){
+  cprintf("starting test\n");
+  int pid;
+  pid = fork();
+  if(pid == 0){//child
+    sigset(&test_handler);
+    cprintf("yielding\n",pid);
+    while(1){
+    }
+    //sigpause();
+  }
+  else{
+    cprintf("%d\n",pid);
+    sigsend(pid,98);
+    wait();
+    cprintf("parent exiting\n");
+    exit();
+  }
+  return 0;
+}
+
+void test_handler(int pid, int value){
+  cprintf("num is %d",value);
+  cprintf("child exiting\n");
+  exit();
 }

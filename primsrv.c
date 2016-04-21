@@ -7,7 +7,6 @@
 #include "syscall.h"
 #include "traps.h"
 #include "memlayout.h"
-//#include <unistd.h>
 struct worker{
 		int pid;
 		int working;
@@ -22,12 +21,13 @@ int serverPid;
 int numOfWorkers;
 struct worker *workers;
 int main(int argc, char **argv){
+	test();
 	//struct for keeping worker information
 		
 
 	//administrative stuff
 	serverPid = getpid();
-	sigset(serverHandler);
+	sigset(&serverHandler);
 
 	int pid;
 	if(argv[1] == 0){
@@ -39,6 +39,7 @@ int main(int argc, char **argv){
 	struct worker workersP[numOfWorkers];
 	workers = workersP;
 	struct worker *w;
+	printf(1,"workers pids:\n");
 	for(w = workers; w < &workers[numOfWorkers]; w++){
 		pid = fork();
 		if(pid == 0){ //child process = worker
@@ -46,6 +47,7 @@ int main(int argc, char **argv){
 			return 0;
 		}
 		else{ //parent, registering process
+			printf(1,"%d\n",pid);
 			w->pid = pid;
 			w->working = 0;
 			w->query = 0;
@@ -71,7 +73,7 @@ int main(int argc, char **argv){
 			}
 			else{ //found one, sending signal
 				w->working = 1;
-				//sigsend(w->pid,nextNum);
+				sigsend(w->pid,nextNum);
 			}
 
 		}
@@ -89,12 +91,9 @@ int main(int argc, char **argv){
 
 void runWorker(){
 	for(;;){
-		sleep(1000);
+		sigset(&workerHandler);
+		sigpause();
 	}
-	//for(;;){
-	//	sigpause();
-	//	sigset(workerHandler);
-	//}
 }
 void workerHandler(int pid, int value){
 	int i = value+1;
@@ -124,7 +123,7 @@ void workerHandler(int pid, int value){
 		}
 	}
 	//send a signal to primsrv, let him know the worker got the prime number
-	//sigsand(serverPid,pid);
+	sigsend(serverPid,pid);
 }
 
 void serverHandler(int pid, int value){
@@ -138,5 +137,5 @@ void serverHandler(int pid, int value){
 			break;
 		}
 	}
-	sigset(serverHandler);
+	sigset(&serverHandler);
 }

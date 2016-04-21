@@ -24,3 +24,4 @@
 #define SYS_sigsend  23
 #define SYS_sigret   24
 #define SYS_sigpause 25
+#define SYS_test	 26

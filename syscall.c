@@ -102,6 +102,7 @@ extern int sys_sigset(void);
 extern int sys_sigsend(void);
 extern int sys_sigret(void);
 extern int sys_sigpause(void);
+extern int sys_test(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -129,6 +130,7 @@ static int (*syscalls[])(void) = {
 [SYS_sigsend] sys_sigsend,
 [SYS_sigret]  sys_sigret,
 [SYS_sigpause] sys_sigpause,
+[SYS_test]     sys_test,
 };
 
 void
