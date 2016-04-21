@@ -618,6 +618,33 @@ wakeup1(void *chan)
     //proc->tf = proc->oldtf;
     //TODO!
     //testStack();  //TODO DELETE TESTS
+cprintf("sigret \n");
+
+    proc->tf->edi = proc->oldtf.edi;
+    proc->tf->esi = proc->oldtf.esi;
+    proc->tf->ebp = proc->oldtf.ebp;
+    proc->tf->oesp = proc->oldtf.oesp;
+    proc->tf->ebx = proc->oldtf.ebx ;
+    proc->tf->ecx = proc->oldtf.ecx ;
+    proc->tf->eax = proc->oldtf.eax;
+   proc->tf->gs = proc->oldtf.gs;
+   proc->tf->padding1 =proc->oldtf.padding1 ;
+   proc->tf->fs = proc->oldtf.fs ;
+   proc->oldtf.padding2 = proc->tf->padding2;
+
+   proc->tf->es =proc->oldtf.es ;
+   proc->tf->padding3=proc->oldtf.padding3 ;
+  proc->tf->ds=proc->oldtf.ds ;
+  proc->tf->padding4 = proc->oldtf.padding4 ;
+  proc->tf->trapno =proc->oldtf.trapno ;
+  proc->tf->err =proc->oldtf.err ;
+  proc->tf->eip = proc->oldtf.eip ;
+  proc->tf->cs = proc->oldtf.cs ;
+  proc->tf->padding5 = proc->oldtf.padding5 ;
+  proc->tf->eflags = proc->oldtf.eflags;
+  proc->tf->esp=proc->oldtf.esp ;
+  proc->tf->ss=proc->oldtf.ss ;
+  proc->tf->padding6=proc->oldtf.padding6 ;
 
   }
   //suspend the process until a new signal is received
