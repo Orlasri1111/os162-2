@@ -17,11 +17,12 @@ struct worker{
 void runWorker();
 void workerHandler(int pid, int value);
 void serverHandler(int pid, int value);
+void test_handler(int pid, int value);
+void test2();
 int serverPid;
 int numOfWorkers;
 struct worker *workers;
 int main(int argc, char **argv){
-	test();
 	//struct for keeping worker information
 		
 
@@ -30,16 +31,16 @@ int main(int argc, char **argv){
 	sigset(&serverHandler);
 
 	int pid;
-	if(argv[1] == 0){
+	numOfWorkers = atoi(argv[1]);
+	if(numOfWorkers == 0){
 		printf(1,"num of workers missing \n");
 		return 0;
 	}
-	numOfWorkers = atoi(argv[1]);
+	workers = malloc((sizeof(struct worker)) * numOfWorkers);
 	//initializing workers array
-	struct worker workersP[numOfWorkers];
-	workers = workersP;
 	struct worker *w;
 	printf(1,"workers pids:\n");
+	//initialize workers
 	for(w = workers; w < &workers[numOfWorkers]; w++){
 		pid = fork();
 		if(pid == 0){ //child process = worker
@@ -54,7 +55,6 @@ int main(int argc, char **argv){
 			w->value = 0;
 		}
 	}
-
 	//run manager
 	int nextNum;
 	char buf[10];
@@ -72,6 +72,7 @@ int main(int argc, char **argv){
 				printf(1,"no idle workers\n");
 			}
 			else{ //found one, sending signal
+				printf(1,"found open worker\n");
 				w->working = 1;
 				sigsend(w->pid,nextNum);
 			}
@@ -115,20 +116,26 @@ void workerHandler(int pid, int value){
 	}
 	//i is the prime number, put it as worker's value
 	struct worker *w;
+	for(w = workers; w < &workers[numOfWorkers]; w++)
+		printf(1,"%d\n",w->pid);
 	for(w = workers; w < &workers[numOfWorkers]; w++){
+		//printf(1,"looking at %d\n",(*w).pid);
 		if(w->pid == pid){
 			w->query = value;
 			w->value = i;
+			printf(1,"worker finish\n");
 			break;
 		}
 	}
 	//send a signal to primsrv, let him know the worker got the prime number
+	printf(1,"worker sending signal\n");
 	sigsend(serverPid,pid);
 }
 
 void serverHandler(int pid, int value){
 	//find the worker that send the signal (value)
 	//and print it's "value" = the prime number needed
+	printf(1,"server starting\n");
 	struct worker *w;
 	for(w = workers; w < &workers[numOfWorkers]; w++){
 		if(w->pid == value){
@@ -138,4 +145,29 @@ void serverHandler(int pid, int value){
 		}
 	}
 	sigset(&serverHandler);
+}
+
+void test2(){
+  printf(1,"starting test\n");
+  int pidt;
+  pidt = fork();
+  if(pidt == 0){//child
+    printf(1,"child\n");
+    sigset(&test_handler);
+    sigpause();
+  }
+  else{
+  	sleep(100);
+    //cprintf("%d\n",pid);
+    sigsend(pidt,98);
+    wait();
+    printf(1,"parent exiting\n");
+    exit();
+  }
+}
+
+void test_handler(int pid, int value){
+  printf(1,"num is %d\n",value);
+  printf(1,"child exiting\n");
+  exit();
 }
