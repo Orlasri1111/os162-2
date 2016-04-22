@@ -72,13 +72,18 @@ int main(int argc, char **argv){
 				printf(1,"no idle workers\n");
 			}
 			else{ //found one, sending signal
-				printf(1,"found open worker\n");
+				//printf(1,"found open worker\n");
 				w->working = 1;
+				w->query = nextNum;
 				sigsend(w->pid,nextNum);
 			}
 
 		}
+		//clean buffer
+		for(nextNum = 0; nextNum < 10; nextNum++)
+			buf[nextNum] = 0;
 	}
+	printf(1,"%d\n",buf[0]);
 	//0 was send, kill all workers and exit
 	for(w = workers; w < &workers[numOfWorkers]; w++){
 		printf(1,"worker %d exit\n",w->pid);
@@ -100,46 +105,32 @@ void workerHandler(int pid, int value){
 	int i = value+1;
 	int found = 0;
 	int j;
+	//find the next prime number after "value"
 	while(!found){
-		for(j = 2; j < i/2; j++){
+		for(j = 2; j < i; j++){
 			if(i % j == 0)
 				break;
 		}
 		//found a prime number
-		if(j == i/2){
+		if(j == i){
 			found = 1;
 		}
-		//didn't found
+		//haven't found
 		else{
 			i++;
 		}
 	}
-	//i is the prime number, put it as worker's value
-	struct worker *w;
-	for(w = workers; w < &workers[numOfWorkers]; w++)
-		printf(1,"%d\n",w->pid);
-	for(w = workers; w < &workers[numOfWorkers]; w++){
-		//printf(1,"looking at %d\n",(*w).pid);
-		if(w->pid == pid){
-			w->query = value;
-			w->value = i;
-			printf(1,"worker finish\n");
-			break;
-		}
-	}
 	//send a signal to primsrv, let him know the worker got the prime number
-	printf(1,"worker sending signal\n");
-	sigsend(serverPid,pid);
+	sigsend(serverPid,i);
 }
 
 void serverHandler(int pid, int value){
 	//find the worker that send the signal (value)
 	//and print it's "value" = the prime number needed
-	printf(1,"server starting\n");
 	struct worker *w;
 	for(w = workers; w < &workers[numOfWorkers]; w++){
-		if(w->pid == value){
-			printf(1,"worker %d returned %d as a result for %d \n",w->pid,w->value,w->query);
+		if(w->pid == pid){
+			printf(1,"worker %d returned %d as a result for %d \n",pid,value,w->query);
 			w->working = 0;
 			break;
 		}

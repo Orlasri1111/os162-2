@@ -236,8 +236,7 @@ fork(void)
 
   // Pass abandoned children to init.
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if
-        (p->parent == proc){
+      if(p->parent == proc){
         p->parent = initproc;
         if(p->state == ZOMBIE || p->state == NEG_ZOMBIE)
           wakeup1(initproc);
@@ -368,6 +367,8 @@ fork(void)
       // It should have changed its p->state before coming back.
         //cprintf("pid:%d state:%d\n",proc->pid,proc->state);
         if (p->state == NEG_ZOMBIE){
+          if(p->pid == 5)
+          cprintf("5 zombie\n");
           //dont wakeup parent before finishing freeproc!!
             struct proc* parent = proc->parent;
             //cprintf("freeproc\n");
@@ -545,6 +546,7 @@ wakeup1(void *chan)
         //release(&ptable.lock);
         //cprintf("cpu%d: pop kill \n",cpu->id);
         popcli();
+
         return 0;
       }
     }
@@ -630,7 +632,7 @@ wakeup1(void *chan)
     proc->tf->gs = proc->oldtf.gs;
     proc->tf->padding1 =proc->oldtf.padding1 ;
     proc->tf->fs = proc->oldtf.fs ;
-    proc->oldtf.padding2 = proc->tf->padding2;
+    proc->tf->padding2 = proc->oldtf.padding2;
 
     proc->tf->es =proc->oldtf.es ;
     proc->tf->padding3=proc->oldtf.padding3 ;
@@ -796,11 +798,11 @@ usesignal(struct trapframe *tf){
         //update esp to point to the new place
         proc->tf->esp =proc->tf->esp - diffbytes;
         int value = signalhead->value;
-        int recipientid = signalhead->recepient_pid;
+        int senderpid = signalhead->sender_pid;
         signalhead->used = 0;
         //push all args to stack
         memmove((void*)(proc->tf->esp-4),&value,4);
-        memmove((void*)(proc->tf->esp-8),&recipientid,4);
+        memmove((void*)(proc->tf->esp-8),&senderpid,4);
         proc->tf->esp =proc->tf->esp - 8;
         int return_add = proc->tf->esp +8;
         //push the return address to the stack
