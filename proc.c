@@ -367,8 +367,6 @@ fork(void)
       // It should have changed its p->state before coming back.
         //cprintf("pid:%d state:%d\n",proc->pid,proc->state);
         if (p->state == NEG_ZOMBIE){
-          if(p->pid == 5)
-          cprintf("5 zombie\n");
           //dont wakeup parent before finishing freeproc!!
             struct proc* parent = proc->parent;
             //cprintf("freeproc\n");
@@ -621,14 +619,14 @@ wakeup1(void *chan)
     //TODO!
     //testStack();  //TODO DELETE TESTS
     //cprintf("sigret \n");
-
+    
+    proc->tf->eax = proc->oldtf.eax;
     proc->tf->edi = proc->oldtf.edi;
     proc->tf->esi = proc->oldtf.esi;
     proc->tf->ebp = proc->oldtf.ebp;
     proc->tf->oesp = proc->oldtf.oesp;
     proc->tf->ebx = proc->oldtf.ebx ;
     proc->tf->ecx = proc->oldtf.ecx ;
-    proc->tf->eax = proc->oldtf.eax;
     proc->tf->gs = proc->oldtf.gs;
     proc->tf->padding1 =proc->oldtf.padding1 ;
     proc->tf->fs = proc->oldtf.fs ;
@@ -652,7 +650,7 @@ wakeup1(void *chan)
   //suspend the process until a new signal is received
   int sigpause(void){
     pushcli();
-    while(isEmpty(&proc->pending_signals)){ //no signals to handle go to sleep
+    while(isEmpty(&proc->pending_signals) && proc->killed == 0){ //no signals to handle go to sleep
       //cprintf("going to sleep\n");
       proc->chan = (int)(&(proc->pending_signals));  //sleep on my pending signals TODO
       if(cas(&(proc->state), RUNNING, NEG_SLEEPING)){
@@ -758,13 +756,13 @@ testStack(){
 }
 
 void backuptf(void){
+    proc->oldtf.eax = proc->tf->eax;
     proc->oldtf.edi = proc->tf->edi;
     proc->oldtf.esi = proc->tf->esi;
     proc->oldtf.ebp = proc->tf->ebp;
     proc->oldtf.oesp = proc->tf->oesp;
     proc->oldtf.ebx = proc->tf->ebx;
     proc->oldtf.ecx = proc->tf->ecx;
-    proc->oldtf.eax = proc->tf->eax;
     proc->oldtf.gs = proc->tf->gs;
     proc->oldtf.padding1 = proc->tf->padding1;
     proc->oldtf.fs = proc->tf->fs;
@@ -812,32 +810,4 @@ usesignal(struct trapframe *tf){
         
     }
     
-}
-int 
-test(){
-  cprintf("starting test\n");
-  int pid;
-  pid = fork();
-  if(pid == 0){//child
-    cprintf("child\n");
-    sigset(&test_handler);
-    cprintf("yielding\n",pid);
-    while(1){
-    }
-    //sigpause();
-  }
-  else{
-    //cprintf("%d\n",pid);
-    sigsend(pid,98);
-    wait();
-    cprintf("parent exiting\n");
-    exit();
-  }
-  return 0;
-}
-
-void test_handler(int pid, int value){
-  cprintf("num is %d",value);
-  cprintf("child exiting\n");
-  exit();
 }

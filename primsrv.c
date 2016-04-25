@@ -12,13 +12,12 @@ struct worker{
 		int working;
 		int query;
 		int value;
+		int finished;
 	};
 
 void runWorker();
 void workerHandler(int pid, int value);
 void serverHandler(int pid, int value);
-void test_handler(int pid, int value);
-void test2();
 int serverPid;
 int numOfWorkers;
 struct worker *workers;
@@ -53,13 +52,26 @@ int main(int argc, char **argv){
 			w->working = 0;
 			w->query = 0;
 			w->value = 0;
+			w->finished = 0;
 		}
 	}
 	//run manager
+	int j;
 	int nextNum;
-	char buf[10];
+	char buf[15];
+	printf(1,"please enter a number:");
+	read(0,&buf,15);
 	//exit condition: '0' was entered
-	while((nextNum = atoi(gets(buf,10))) != 0 || buf[0] == 10){//TODO: check that *enter* is not 0
+	while((nextNum = atoi(buf)) != 0 || buf[0] == 10){//TODO: check that *enter* is not 0
+		//print all finished workers before proceeding
+		for(w = workers; w < &workers[numOfWorkers]; w++){
+				if(w->finished == 1){
+					printf(1,"worker %d returned %d as a result for %d \n",w->pid,w->value,w->query);
+					w->working = 0;
+					w->finished = 0;
+				}
+		}
+
 		//search next available worker, if nextNum = 0 and we are here
 		//it means that *enter* was prassed, so we will do nothing
 		if(nextNum != 0){
@@ -72,18 +84,17 @@ int main(int argc, char **argv){
 				printf(1,"no idle workers\n");
 			}
 			else{ //found one, sending signal
-				//printf(1,"found open worker\n");
 				w->working = 1;
 				w->query = nextNum;
 				sigsend(w->pid,nextNum);
 			}
-
 		}
-		//clean buffer
-		for(nextNum = 0; nextNum < 10; nextNum++)
-			buf[nextNum] = 0;
+		//elapse buffer
+		for(j = 0; j < 15; j++)
+			buf[j] = 0;
+		printf(1,"please enter a number:");
+		read(0,&buf,15);
 	}
-	printf(1,"%d\n",buf[0]);
 	//0 was send, kill all workers and exit
 	for(w = workers; w < &workers[numOfWorkers]; w++){
 		printf(1,"worker %d exit\n",w->pid);
@@ -96,8 +107,8 @@ int main(int argc, char **argv){
 }
 
 void runWorker(){
+	sigset(&workerHandler);
 	for(;;){
-		sigset(&workerHandler);
 		sigpause();
 	}
 }
@@ -107,12 +118,12 @@ void workerHandler(int pid, int value){
 	int j;
 	//find the next prime number after "value"
 	while(!found){
-		for(j = 2; j < i; j++){
+		for(j = 2; j < i/2; j++){
 			if(i % j == 0)
 				break;
 		}
 		//found a prime number
-		if(j == i){
+		if(j == i/2){
 			found = 1;
 		}
 		//haven't found
@@ -130,35 +141,9 @@ void serverHandler(int pid, int value){
 	struct worker *w;
 	for(w = workers; w < &workers[numOfWorkers]; w++){
 		if(w->pid == pid){
-			printf(1,"worker %d returned %d as a result for %d \n",pid,value,w->query);
-			w->working = 0;
+			w->value = value;
+			w->finished = 1;
 			break;
 		}
 	}
-	sigset(&serverHandler);
-}
-
-void test2(){
-  printf(1,"starting test\n");
-  int pidt;
-  pidt = fork();
-  if(pidt == 0){//child
-    printf(1,"child\n");
-    sigset(&test_handler);
-    sigpause();
-  }
-  else{
-  	sleep(100);
-    //cprintf("%d\n",pid);
-    sigsend(pidt,98);
-    wait();
-    printf(1,"parent exiting\n");
-    exit();
-  }
-}
-
-void test_handler(int pid, int value){
-  printf(1,"num is %d\n",value);
-  printf(1,"child exiting\n");
-  exit();
 }
