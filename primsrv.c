@@ -98,7 +98,7 @@ int main(int argc, char **argv){
 	//0 was send, kill all workers and exit
 	for(w = workers; w < &workers[numOfWorkers]; w++){
 		printf(1,"worker %d exit\n",w->pid);
-		kill(w->pid);
+		sigsend(w->pid, 0);
 		wait();
 	}
 	printf(1,"primesrv exit\n");
@@ -113,17 +113,20 @@ void runWorker(){
 	}
 }
 void workerHandler(int pid, int value){
+	if (value == 0){
+		exit();
+	}
 	int i = value+1;
 	int found = 0;
 	int j;
 	//find the next prime number after "value"
 	while(!found){
-		for(j = 2; j < i/2; j++){
+		for(j = 2; j*j <= i; j++){
 			if(i % j == 0)
 				break;
 		}
 		//found a prime number
-		if(j == i/2){
+		if(j*j > i){
 			found = 1;
 		}
 		//haven't found
