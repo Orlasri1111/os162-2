@@ -208,9 +208,6 @@ consoleintr(int (*getc)(void))
         consputc(BACKSPACE);
       }
       break;
-    case 226: //TODO DELETE: TESTS
-      sigret();
-      break;  //UNTILL HERE
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
         c = (c == '\r') ? '\n' : c;

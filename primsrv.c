@@ -8,12 +8,12 @@
 #include "traps.h"
 #include "memlayout.h"
 struct worker{
-		int pid;
-		int working;
-		int query;
-		int value;
-		int finished;
-	};
+	int pid;
+	int working;
+	int query;
+	int value;
+	int finished;
+};
 
 void runWorker();
 void workerHandler(int pid, int value);
@@ -23,7 +23,7 @@ int numOfWorkers;
 struct worker *workers;
 int main(int argc, char **argv){
 	//struct for keeping worker information
-		
+	
 
 	//administrative stuff
 	serverPid = getpid();
@@ -65,11 +65,11 @@ int main(int argc, char **argv){
 	while((nextNum = atoi(buf)) != 0 || buf[0] == 10){//TODO: check that *enter* is not 0
 		//print all finished workers before proceeding
 		for(w = workers; w < &workers[numOfWorkers]; w++){
-				if(w->finished == 1){
-					printf(1,"worker %d returned %d as a result for %d \n",w->pid,w->value,w->query);
-					w->working = 0;
-					w->finished = 0;
-				}
+			if(w->finished == 1){
+				printf(1,"worker %d returned %d as a result for %d \n",w->pid,w->value,w->query);
+				w->working = 0;
+				w->finished = 0;
+			}
 		}
 
 		//search next available worker, if nextNum = 0 and we are here

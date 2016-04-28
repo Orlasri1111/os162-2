@@ -16,12 +16,10 @@ static struct proc *initproc;
 
 void test_handler(int pid, int value);
 int nextpid = 1;
-// int lock = 0;
 extern void forkret(void);
 extern void trapret(void);
 void changeState(struct proc *p, int newState);
 void changeStateFromTo(struct proc *p, int from, int to);
-void testStack(void); //TODO TESTS
 static void wakeup1(void *chan);
 
 void
@@ -59,7 +57,7 @@ allocproc(void)
 }
 
 p->pid = allocpid();
-p->signal = (void*)-1;  //new signals handler
+p->signal = (void*)-1;  //new signal handler
 
 //initialize cstack
 struct cstackframe *csf;
@@ -115,13 +113,12 @@ userinit(void)
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
 
-  p->signal = (void*) -1; //NEWWWW
+  p->signal = (void*) -1; // init signal handler
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
   changeState(p,RUNNABLE);
-  //p->state = RUNNABLE;
 }
 
 // Grow current process's memory by n bytes.
@@ -183,16 +180,9 @@ fork(void)
     pid = np->pid;  
 
   // lock to force the compiler to emit the np->state write last.
-
-    // acquire(&ptable.lock);
-    // np->state = RUNNABLE;
-    // release(&ptable.lock);
-    //cprintf("cpu%d: push fork \n",cpu->id);
     pushcli();
     changeState(np,RUNNABLE);
-    //cprintf("cpu%d: pop fork \n",cpu->id);
     popcli();
-    
     return pid;
   }
 
@@ -220,19 +210,11 @@ fork(void)
     iput(proc->cwd);
     end_op();
     proc->cwd = 0;
-
-    //OLD
-    // acquire(&ptable.lock);
-    //proc->state = ZOMBIE;
-
-    //NEW
-    //cprintf("cpu%d: push exit \n",cpu->id);
     pushcli();
     changeState(proc,NEG_ZOMBIE);
 
   // Parent might be sleeping in wait().
     wakeup1(proc->parent);
-    //cprintf("wakeup parent\n");
 
   // Pass abandoned children to init.
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -240,7 +222,6 @@ fork(void)
         p->parent = initproc;
         if(p->state == ZOMBIE || p->state == NEG_ZOMBIE)
           wakeup1(initproc);
-          //cprintf("wakeup init\n");
       }
     }
 
@@ -257,15 +238,9 @@ fork(void)
   {
     struct proc *p;
     int havekids, pid;
-
-    //acquire(&ptable.lock);
-    //cprintf("cpu%d: push wait \n",cpu->id);
     pushcli();
     for(;;){
       proc->chan = (int)proc;
-      //OLD
-      //proc->state = SLEEPING;
-      //NEW
       changeState(proc,NEG_SLEEPING);
     // Scan through table looking for zombie children.
       havekids = 0;
@@ -274,7 +249,6 @@ fork(void)
           continue;
         havekids = 1;
         if(p->state == ZOMBIE){
-          //cprintf("found the zombie\n");
         // Found one.
           pid = p->pid;
           p->state = UNUSED;
@@ -283,29 +257,20 @@ fork(void)
           p->name[0] = 0;
 
           proc->chan = 0;
-          //proc->state = RUNNING;
           changeState(proc,RUNNING);
-          //cprintf("now running\n");
-          //cprintf("cpu%d: pop wait zombie \n",cpu->id);
           popcli();
-          //release(&ptable.lock);
           return pid;
         }
       }
-      //cprintf("didnt found zombie\n");
     // No point waiting if we don't have any children.
       if(!havekids || proc->killed){
         proc->chan = 0;
-        //proc->state = RUNNING;      
-        //release(&ptable.lock);
-        //cprintf("cpu%d: pop wait no kids \n",cpu->id);
         popcli();
         changeState(proc,RUNNING);
         return -1;
       }
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
       sched();
-      //cprintf("running after sched\n");
     }
   }
 
@@ -338,25 +303,12 @@ fork(void)
       sti();
 
     // Loop over process table looking for process to run.
-      //OLD
-      // acquire(&ptable.lock);
       pushcli();
       for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-        // if(p->state != 0 && p->state != 2){
-        //   cprintf("%d\n",p->state);
-        // }
         if(!cas(&(p->state),RUNNABLE,RUNNING))
           continue;
-
-      //NEW
-      //cprintf("cpu%d: push scheduler \n",cpu->id);
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-        //cprintf("cpu%d choose %d",cpu->id,p->)
         proc = p;
         switchuvm(p);
-        //p->state = RUNNING;
         swtch(&cpu->scheduler, proc->context);
         // check if the process is at NEG_RUNNABLE or NEG_SLEEPING and change it's
         // status accordingly
@@ -368,28 +320,15 @@ fork(void)
         //cprintf("pid:%d state:%d\n",proc->pid,proc->state);
         if (p->state == NEG_ZOMBIE){
           //dont wakeup parent before finishing freeproc!!
-            struct proc* parent = proc->parent;
-            //cprintf("freeproc\n");
-            freeproc(proc);
-            cas(&(p->state),NEG_ZOMBIE,ZOMBIE);
-            wakeup1(parent);
-            //cprintf("wakeup zombie\n");
+          struct proc* parent = proc->parent;
+          freeproc(proc);
+          cas(&(p->state),NEG_ZOMBIE,ZOMBIE);
+          wakeup1(parent);
         }
         cas(&(proc->state), NEG_RUNNABLE, RUNNABLE);
         cas(&(proc->state), NEG_SLEEPING, SLEEPING);
-        // if(proc->state == NEG_RUNNABLE){
-        //   changeState(p,RUNNABLE);
-        // }
-        // else if(proc->state == NEG_SLEEPING){
-        //   changeState(p,SLEEPING);
-        // }
         proc = 0;
-
-        
-       //cprintf("pid:%d state:%d\n",p->pid,p->state);
       }
-      //release(&ptable.lock);
-      //cprintf("cpu%d: pop scheduler \n",cpu->id);
       popcli();
     }
   }
@@ -400,10 +339,6 @@ fork(void)
   sched(void)
   {
     int intena;
-    //cprintf("%d\n",cpu->ncli);
-
-    //if(!holding(&ptable.lock))
-      //panic("sched ptable.lock");
     if(cpu->ncli != 1)
       panic("sched locks");
     if(proc->state == RUNNING)
@@ -419,49 +354,41 @@ fork(void)
   void
   yield(void)
   {
-  //acquire(&ptable.lock);  //DOC: yieldlock
-  //proc->state = RUNNABLE;
-  //cprintf("cpu%d: push yield \n",cpu->id);
-  pushcli();
-  changeState(proc,NEG_RUNNABLE);  
-  sched();
-  //cprintf("cpu%d: pop yield \n",cpu->id);
-  popcli();
-  //release(&ptable.lock);
-}
+    pushcli();
+    changeState(proc,NEG_RUNNABLE);  
+    sched();
+    popcli();
+  }
 
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
-void
-forkret(void)
-{
-  static int first = 1;
+  void
+  forkret(void)
+  {
+    static int first = 1;
   // Still holding ptable.lock from scheduler.
-  
-  //release(&ptable.lock);
-  //cprintf("cpu%d: pop forkret \n",cpu->id);
-  popcli();
-  if (first) {
+    popcli();
+    if (first) {
     // Some initialization functions must be run in the context
     // of a regular process (e.g., they call sleep), and thus cannot 
     // be run from main().
-    first = 0;
-    initlog();
-  }
-  
+      first = 0;
+      initlog();
+    }
+
   // Return to "caller", actually trapret (see allocproc).
-}
+  }
 
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
-void
-sleep(void *chan, struct spinlock *lk)
-{
-  if(proc == 0)
-    panic("sleep");
+  void
+  sleep(void *chan, struct spinlock *lk)
+  {
+    if(proc == 0)
+      panic("sleep");
 
-  if(lk == 0)
-    panic("sleep without lk");
+    if(lk == 0)
+      panic("sleep without lk");
 
   // Must acquire ptable.lock in order to
   // change p->state and then call sched.
@@ -470,23 +397,16 @@ sleep(void *chan, struct spinlock *lk)
   // (wakeup runs with ptable.lock locked),
   // so it's okay to release lk.
   if(lk != &ptable.lock){  //DOC: sleeplock0
-    //acquire(&ptable.lock);  //DOC: sleeplock1
-    //cprintf("cpu%d: push sleep \n",cpu->id);
     pushcli();
     proc->chan = (int)chan;
     changeState(proc,NEG_SLEEPING);
     release(lk);
   }
-
   // Go to sleep.
-  //proc->state = SLEEPING;
-
   sched();
 
   // Reacquire original lock.
-  if(lk != &ptable.lock){  //DOC: sleeplock2
-    //release(&ptable.lock);
-    //cprintf("cpu%d: pop sleep \n",cpu->id);
+  if(lk != &ptable.lock){  
     popcli();
     acquire(lk);
   }
@@ -499,13 +419,11 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
-
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if((p->state == SLEEPING || p->state == NEG_SLEEPING) && p->chan == (int)chan){
       // Tidy up.
       p->chan = 0;
       changeStateFromTo(p,SLEEPING,RUNNABLE);
-      //p->state = RUNNABLE;
     }
 
   }
@@ -514,13 +432,9 @@ wakeup1(void *chan)
   void
   wakeup(void *chan)
   {
-    //acquire(&ptable.lock);
-    //cprintf("cpu%d: push wakeup \n",cpu->id);
     pushcli();
     wakeup1(chan);
-    //cprintf("cpu%d: pop wakeup \n",cpu->id);
     popcli();
-    //release(&ptable.lock);
   }
 
 // Kill the process with the given pid.
@@ -530,26 +444,17 @@ wakeup1(void *chan)
   kill(int pid)
   {
     struct proc *p;
-
-    //acquire(&ptable.lock);
-    //cprintf("cpu%d: push kill \n",cpu->id);
     pushcli();
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->pid == pid){
         p->killed = 1;
       // Wake process from sleep if necessary.
         if(p->state == SLEEPING || p->state == NEG_SLEEPING)
-          //p->state = RUNNABLE;
           changeStateFromTo(p,SLEEPING,RUNNABLE);
-        //release(&ptable.lock);
-        //cprintf("cpu%d: pop kill \n",cpu->id);
         popcli();
-
         return 0;
       }
     }
-    //release(&ptable.lock);
-    //cprintf("cpu%d: pop no kill \n",cpu->id);
     popcli();
     return -1;
   }
@@ -603,8 +508,7 @@ wakeup1(void *chan)
     for (p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if (p->pid == dest_pid){  //found process
         if (push(&p->pending_signals, proc->pid, dest_pid, value)){ //succeeded push signal
-          //wakeup((void*)p->chan);
-          wakeup((void*)&(p->pending_signals)); //TODO:CHECK!wake up if sleeps on pending_signals
+          wakeup((void*)&(p->pending_signals)); 
           return 0;
         }
         else
@@ -615,11 +519,6 @@ wakeup1(void *chan)
   }
 // restore the CPU registers values for the user space execution by restore old trapfram
   void sigret(void){
-    //proc->tf = proc->oldtf;
-    //TODO!
-    //testStack();  //TODO DELETE TESTS
-    //cprintf("sigret \n");
-    
     proc->tf->eax = proc->oldtf.eax;
     proc->tf->edi = proc->oldtf.edi;
     proc->tf->esi = proc->oldtf.esi;
@@ -631,7 +530,6 @@ wakeup1(void *chan)
     proc->tf->padding1 =proc->oldtf.padding1 ;
     proc->tf->fs = proc->oldtf.fs ;
     proc->tf->padding2 = proc->oldtf.padding2;
-
     proc->tf->es =proc->oldtf.es ;
     proc->tf->padding3=proc->oldtf.padding3 ;
     proc->tf->ds=proc->oldtf.ds ;
@@ -645,24 +543,21 @@ wakeup1(void *chan)
     proc->tf->esp=proc->oldtf.esp ;
     proc->tf->ss=proc->oldtf.ss ;
     proc->tf->padding6=proc->oldtf.padding6 ;
-
   }
   //suspend the process until a new signal is received
   int sigpause(void){
     pushcli();
     while(isEmpty(&proc->pending_signals) && proc->killed == 0){ //no signals to handle go to sleep
-      //cprintf("going to sleep\n");
-      proc->chan = (int)(&(proc->pending_signals));  //sleep on my pending signals TODO
+      proc->chan = (int)(&(proc->pending_signals));  //sleep on my pending signals
       if(cas(&(proc->state), RUNNING, NEG_SLEEPING)){
         sched();
       }
-    //TODO?
     }
-    popcli(); //TODO??
+    popcli(); 
     return 0;
   }
-/////CSTACK IMPLEMENTATION
 
+/////CSTACK IMPLEMENTATION
 // adds a new frame to the cstack which is initialized with values
 // sender_pid, recepient_pid and value, then returns 1 on success and 0
 // if the stack is full
@@ -683,8 +578,6 @@ wakeup1(void *chan)
     csf->sender_pid = sender_pid;
     csf->recepient_pid = recepient_pid;
     csf->value = value;
-    // if(cas((int*)&(cstack->head), 0, (int)&csf))
-    //   return 1;
     do {
       csf->next = cstack->head;
     } while (!cas((int*)&(cstack->head), (int)csf->next, (int)csf));
@@ -696,118 +589,82 @@ wakeup1(void *chan)
   struct cstackframe*
   pop(struct cstack *cstack){
     struct cstackframe *csf;
-    //struct cstackframe *next;
-
     do {
       csf = cstack->head;
       if (!csf)
         return 0;
     } while (!cas((int*)&(cstack->head), (int)csf, (int)csf->next));
-
-  //csf->used = 0;
     return csf;
   }
     //return 1 if empty 0 otherwise 
   int
   isEmpty(struct cstack *cstack){
-    // struct cstackframe *csf;
-    // for(csf = cstack->frames; csf < &cstack->frames[10]; csf++) {
-    //   if(csf->used == 1)
-    //     return 0;
-    // }
-    // return 1;
     return !(cstack->head);
   }
+/////END OF CSTACK
 
-//END OF CSTACK
-
-void
-changeState(struct proc *p, int newState){
-  while(!cas(&(p->state),p->state,newState));
-}
-
-void
-changeStateFromTo(struct proc *p, int from, int to){
-  while(!cas(&(p->state),from,to)){
-       //cprintf("%d -> %d\n",from,to);
+  void
+  changeState(struct proc *p, int newState){
+    while(!cas(&(p->state),p->state,newState));
   }
-  //cprintf("success\n");
-}
 
-void 
-testStack(){
-  struct cstackframe* csftest;
-
-  cprintf("%d\n", initproc->pending_signals.frames[5].used);
-  push(&initproc->pending_signals, initproc->pid, initproc->pid,7);
-    //cprintf("%d\n", initproc->pending_signals.head->value);
-
-  push(&initproc->pending_signals, initproc->pid, initproc->pid,9);
-    //cprintf("%d\n", (int)initproc->pending_signals.head->value);
-
-
-
-  //struct cstackframe* csftest;
-  csftest = pop(&initproc->pending_signals);
-  cprintf("%d\n",csftest->value);
-    csftest = pop(&initproc->pending_signals);
-  cprintf("%d\n",csftest->value);
-
-}
+  void
+  changeStateFromTo(struct proc *p, int from, int to){
+    while(!cas(&(p->state),from,to)){}
+  }
 
 void backuptf(void){
-    proc->oldtf.eax = proc->tf->eax;
-    proc->oldtf.edi = proc->tf->edi;
-    proc->oldtf.esi = proc->tf->esi;
-    proc->oldtf.ebp = proc->tf->ebp;
-    proc->oldtf.oesp = proc->tf->oesp;
-    proc->oldtf.ebx = proc->tf->ebx;
-    proc->oldtf.ecx = proc->tf->ecx;
-    proc->oldtf.gs = proc->tf->gs;
-    proc->oldtf.padding1 = proc->tf->padding1;
-    proc->oldtf.fs = proc->tf->fs;
-    proc->oldtf.padding2 = proc->tf->padding2;
-    proc->oldtf.es = proc->tf->es;
-    proc->oldtf.padding3 = proc->tf->padding3;
-    proc->oldtf.ds = proc->tf->ds;
-    proc->oldtf.padding4 = proc->tf->padding4;
-    proc->oldtf.trapno = proc->tf->trapno;
-    proc->oldtf.err = proc->tf->err;
-    proc->oldtf.eip = proc->tf->eip;
-    proc->oldtf.cs = proc->tf->cs;
-    proc->oldtf.padding5 = proc->tf->padding5;
-    proc->oldtf.eflags = proc->tf->eflags;
-    proc->oldtf.esp = proc->tf->esp;
-    proc->oldtf.ss = proc->tf->ss;
-    proc->oldtf.padding6 = proc->tf->padding6;
-    
+  proc->oldtf.eax = proc->tf->eax;
+  proc->oldtf.edi = proc->tf->edi;
+  proc->oldtf.esi = proc->tf->esi;
+  proc->oldtf.ebp = proc->tf->ebp;
+  proc->oldtf.oesp = proc->tf->oesp;
+  proc->oldtf.ebx = proc->tf->ebx;
+  proc->oldtf.ecx = proc->tf->ecx;
+  proc->oldtf.gs = proc->tf->gs;
+  proc->oldtf.padding1 = proc->tf->padding1;
+  proc->oldtf.fs = proc->tf->fs;
+  proc->oldtf.padding2 = proc->tf->padding2;
+  proc->oldtf.es = proc->tf->es;
+  proc->oldtf.padding3 = proc->tf->padding3;
+  proc->oldtf.ds = proc->tf->ds;
+  proc->oldtf.padding4 = proc->tf->padding4;
+  proc->oldtf.trapno = proc->tf->trapno;
+  proc->oldtf.err = proc->tf->err;
+  proc->oldtf.eip = proc->tf->eip;
+  proc->oldtf.cs = proc->tf->cs;
+  proc->oldtf.padding5 = proc->tf->padding5;
+  proc->oldtf.eflags = proc->tf->eflags;
+  proc->oldtf.esp = proc->tf->esp;
+  proc->oldtf.ss = proc->tf->ss;
+  proc->oldtf.padding6 = proc->tf->padding6;
 }
 
+// push args to user stack in order to use them later, plus pop from pending signals
+// in order to use the signal we first need to backup all environment
 void
 usesignal(struct trapframe *tf){
-    if ( ( (tf->cs&3) == 3) && (proc != 0) && ((int)proc->signal != -1) && (proc->pending_signals.head != 0) && (proc->pending_signals.head->used != 0) ){
-        struct cstackframe *signalhead = pop(&proc->pending_signals);
-        backuptf();
-        proc->tf->eip = (uint)(proc->signal);
+  // make sure there is a signal handler and a pending signal and has been called from user to kernel
+  if ( ( (tf->cs&3) == 3) && (proc != 0) && ((int)proc->signal != -1) && (proc->pending_signals.head != 0) && (proc->pending_signals.head->used != 0) ){
+    struct cstackframe *signalhead = pop(&proc->pending_signals);
+    backuptf();
+    proc->tf->eip = (uint)(proc->signal);
         // the size we need to use in the stack in order to copy the relevant code
-        int diffbytes = ((int)(&endsigret) -(int)(&startsigret));
+    int diffbytes = ((int)(&endsigret) -(int)(&startsigret));
         //push the code into the stack
-        memmove((void*)(proc->tf->esp-diffbytes),&startsigret,diffbytes);
+    memmove((void*)(proc->tf->esp-diffbytes),&startsigret,diffbytes);
         //update esp to point to the new place
-        proc->tf->esp =proc->tf->esp - diffbytes;
-        int value = signalhead->value;
-        int senderpid = signalhead->sender_pid;
-        signalhead->used = 0;
+    proc->tf->esp =proc->tf->esp - diffbytes;
+    int value = signalhead->value;
+    int senderpid = signalhead->sender_pid;
+    signalhead->used = 0;
         //push all args to stack
-        memmove((void*)(proc->tf->esp-4),&value,4);
-        memmove((void*)(proc->tf->esp-8),&senderpid,4);
-        proc->tf->esp =proc->tf->esp - 8;
-        int return_add = proc->tf->esp +8;
+    memmove((void*)(proc->tf->esp-4),&value,4);
+    memmove((void*)(proc->tf->esp-8),&senderpid,4);
+    proc->tf->esp =proc->tf->esp - 8;
+    int return_add = proc->tf->esp +8;
         //push the return address to the stack
-        memmove((void*)(proc->tf->esp-4),&return_add,4);
-        proc->tf->esp =proc->tf->esp - 4;
-        
-        
-    }
-    
+    memmove((void*)(proc->tf->esp-4),&return_add,4);
+    proc->tf->esp =proc->tf->esp - 4;   
+  }
 }

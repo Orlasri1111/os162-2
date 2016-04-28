@@ -101,7 +101,6 @@ sys_sigset(void){
 //send a signal with the given value to a process with pid dest_pid
 int
 sys_sigsend(void){
-//sigsend(int dest_pid, int value){
   int destpid;
   int val;
   if(argint(0, &destpid) < 0)
@@ -114,8 +113,7 @@ sys_sigsend(void){
 //complete the signal handling context (should not be called explicitly)
 int
 sys_sigret(void){
-  //TODO:!!
-  sigret();//FOR TEST DELETE AFTER
+  sigret();
   return 0;
   
 }
@@ -123,11 +121,5 @@ sys_sigret(void){
 //suspend the process until a new signal is received
 int
 sys_sigpause(void){
-  //TODO!!
   return sigpause();
-  //return 0;
-}
-int
-sys_test(void){
-  return test();
 }

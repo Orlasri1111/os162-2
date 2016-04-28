@@ -132,7 +132,7 @@ struct proc {
   char name[16];               // Process name (debugging)
   sig_handler signal;          //points to signal handler
   struct cstack pending_signals;  //a stack of all pending signals
-  struct daniframe oldtf;        // Trap frame for backup enviroment syscall //TODO!!
+  struct daniframe oldtf;        // Trap frame for backup enviroment syscall
 };
 
 // Process memory is laid out contiguously, low addresses first:
